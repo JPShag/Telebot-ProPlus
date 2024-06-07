@@ -1,10 +1,6 @@
-# Telebot-ProPlus
-Teelegram bot, shop, casino all controlled through a panel.
+# Telebot-ProPlus - Feel the power
 
-
-# Feel the power
-
-# MegaCryptoCasinoShop: The Ultimate Telegram-Integrated Crypto-Powered E-Commerce and Gaming Extravaganza
+# The Ultimate Telegram-Integrated Crypto-Powered E-Commerce and Gaming Extravaganza
 
 A Flask application for managing an online shop with user authentication, crypto payments, and thrilling casino games, all seamlessly integrated with Telegram for an unparalleled shopping and gaming experience.
 
