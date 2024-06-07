@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1 class="my-4">Admin Dashboard</h1>
+        <h2>Users</h2>
+        <ul class="list-group">
+            {% for user in users %}
+                <li class="list-group-item">
+                    {{ user.username }} - Balance: ${{ user.balance }} - Level: {{ user.level }} - Reward Points: {{ user.reward_points }}
+                </li>
+            {% endfor %}
+        </ul>
+        <h2 class="my-4">Items</h2>
+        <ul class="list-group">
+            {% for item in items %}
+                <li class="list-group-item">
+                    {{ item.name }} - ${{ item.price }}
+                    <a href="{{ url_for('edit_item', item_id=item.id) }}" class="btn btn-sm btn-primary">Edit</a>
+                    <a href="{{ url_for('delete_item', item_id=item.id) }}" class="btn btn-sm btn-danger">Delete</a>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+</body>
+</html>
