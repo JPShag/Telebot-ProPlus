@@ -13,7 +13,53 @@
     <div class="container">
         <h1 class="my-4">Blackjack Game</h1>
         <p><a href="{{ url_for('index') }}" class="btn btn-secondary">Back to Shop</a></p>
-        <!-- Implement Blackjack Game UI here -->
+        
+        <div class="row">
+            <div class="col-md-6">
+                <h3>Dealer's Hand</h3>
+                <div id="dealer-cards">
+                    {% for card in dealer_cards %}
+                        <span class="card">{{ card }}</span>
+                    {% endfor %}
+                </div>
+                <p>Dealer's Score: <span id="dealer-score">{{ dealer_score }}</span></p>
+            </div>
+            
+            <div class="col-md-6">
+                <h3>Your Hand</h3>
+                <div id="player-cards">
+                    {% for card in player_cards %}
+                        <span class="card">{{ card }}</span>
+                    {% endfor %}
+                </div>
+                <p>Your Score: <span id="player-score">{{ player_score }}</span></p>
+            </div>
+        </div>
+
+        <div class="controls mt-4">
+            <form action="{{ url_for('blackjack_bet') }}" method="post" class="mb-3">
+                <div class="form-group">
+                    <label for="bet">Bet Amount:</label>
+                    <input type="number" class="form-control" id="bet" name="bet" min="1" max="{{ user.balance }}" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Place Bet</button>
+            </form>
+
+            {% if game_in_progress %}
+                <form action="{{ url_for('blackjack_hit') }}" method="post" class="d-inline">
+                    <button type="submit" class="btn btn-success">Hit</button>
+                </form>
+                <form action="{{ url_for('blackjack_stand') }}" method="post" class="d-inline">
+                    <button type="submit" class="btn btn-warning">Stand</button>
+                </form>
+            {% endif %}
+        </div>
+
+        {% if game_result %}
+            <div class="alert alert-info mt-4">
+                {{ game_result }}
+            </div>
+        {% endif %}
     </div>
 </body>
 </html>

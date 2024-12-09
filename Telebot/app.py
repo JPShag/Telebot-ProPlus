@@ -5,6 +5,8 @@ from decimal import Decimal
 import random
 import requests
 import os
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'supersecretkey')
@@ -36,6 +38,7 @@ class User(UserMixin):
         self.purchase_history = []
         self.level = 1
         self.reward_points = 0
+        self.telegram_id = None
 
     def get_id(self):
         return self.id
@@ -203,17 +206,128 @@ def admin():
 
 # Additional Casino Games Routes
 
+RED_NUMBERS = {1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36}
+BLACK_NUMBERS = set(range(37)) - RED_NUMBERS - {0}
+
 @app.route('/roulette')
 @login_required
 def roulette():
-    # Implement roulette game logic
-    return render_template('roulette.html', user=current_user)
+    return render_template('roulette.html', 
+                         user=current_user,
+                         red_numbers=RED_NUMBERS,
+                         result=session.get('last_roulette_result'))
+
+@app.route('/roulette/bet', methods=['POST'])
+@login_required
+def place_roulette_bet():
+    bet_amount = Decimal(request.form['bet_amount'])
+    bet_type = request.form['bet_type']
+    number = int(request.form.get('number', 0))
+    
+    if bet_amount <= 0 or bet_amount > current_user.balance:
+        flash('Invalid bet amount')
+        return redirect(url_for('roulette'))
+    
+    # Deduct bet amount
+    current_user.balance -= bet_amount
+    
+    # Spin the wheel
+    result = random.randint(0, 36)
+    won = False
+    payout_multiplier = 0
+    
+    # Check win conditions
+    if bet_type == 'straight' and result == number:
+        won = True
+        payout_multiplier = 35
+    elif bet_type == 'red' and result in RED_NUMBERS:
+        won = True
+        payout_multiplier = 1
+    elif bet_type == 'black' and result in BLACK_NUMBERS:
+        won = True
+        payout_multiplier = 1
+    elif bet_type == 'even' and result != 0 and result % 2 == 0:
+        won = True
+        payout_multiplier = 1
+    elif bet_type == 'odd' and result % 2 == 1:
+        won = True
+        payout_multiplier = 1
+    elif bet_type == '1-18' and 1 <= result <= 18:
+        won = True
+        payout_multiplier = 1
+    elif bet_type == '19-36' and 19 <= result <= 36:
+        won = True
+        payout_multiplier = 1
+    
+    # Calculate winnings
+    if won:
+        winnings = bet_amount * (payout_multiplier + 1)
+        current_user.balance += winnings
+        message = f'You won ${winnings}!'
+    else:
+        message = 'Better luck next time!'
+    
+    # Store result in session
+    session['last_roulette_result'] = {
+        'number': result,
+        'message': message
+    }
+    
+    return redirect(url_for('roulette'))
 
 @app.route('/blackjack')
 @login_required
 def blackjack():
     # Implement blackjack game logic
     return render_template('blackjack.html', user=current_user)
+
+# Add Telegram configuration
+TELEGRAM_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', 'your_telegram_token')
+updater = Updater(token=TELEGRAM_TOKEN, use_context=True)
+dispatcher = updater.dispatcher
+
+# Telegram command handlers
+def start(update: Update, context: CallbackContext):
+    keyboard = [
+        [KeyboardButton("💰 Balance"), KeyboardButton("🎲 Games")],
+        [KeyboardButton("🛍️ Shop"), KeyboardButton("📊 Stats")]
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    update.message.reply_text(
+        "Welcome to the Casino & Shop Bot!\n"
+        "Use the keyboard below to navigate:",
+        reply_markup=reply_markup
+    )
+
+def check_balance(update: Update, context: CallbackContext):
+    telegram_id = str(update.effective_user.id)
+    user = next((u for u in USERS.values() if getattr(u, 'telegram_id', None) == telegram_id), None)
+    
+    if user:
+        update.message.reply_text(f"Your balance: ${user.balance}\n"
+                                f"Level: {user.level}\n"
+                                f"Reward points: {user.reward_points}")
+    else:
+        update.message.reply_text("Please link your account first using /link command")
+
+def link_account(update: Update, context: CallbackContext):
+    if len(context.args) != 2:
+        update.message.reply_text("Usage: /link username password")
+        return
+    
+    username, password = context.args
+    user = next((u for u in USERS.values() if u.username == username), None)
+    
+    if user and user.check_password(password):
+        user.telegram_id = str(update.effective_user.id)
+        update.message.reply_text("Account linked successfully!")
+    else:
+        update.message.reply_text("Invalid username or password")
+
+# Add these handlers to the dispatcher
+dispatcher.add_handler(CommandHandler("start", start))
+dispatcher.add_handler(CommandHandler("balance", check_balance))
+dispatcher.add_handler(CommandHandler("link", link_account))
 
 if __name__ == '__main__':
     app.run(debug=True)

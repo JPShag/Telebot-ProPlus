@@ -8,12 +8,85 @@
     <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+    <style>
+        .roulette-board {
+            display: grid;
+            grid-template-columns: repeat(13, 1fr);
+            gap: 2px;
+            margin: 20px 0;
+        }
+        .number-cell {
+            padding: 10px;
+            text-align: center;
+            border: 1px solid #ddd;
+            cursor: pointer;
+        }
+        .red { background-color: #ffcccc; }
+        .black { background-color: #cccccc; }
+        .green { background-color: #ccffcc; }
+        .selected { border: 2px solid yellow; }
+    </style>
 </head>
 <body>
     <div class="container">
         <h1 class="my-4">Roulette Game</h1>
         <p><a href="{{ url_for('index') }}" class="btn btn-secondary">Back to Shop</a></p>
-        <!-- Implement Roulette Game UI here -->
+        
+        <div class="row">
+            <div class="col-md-8">
+                <div class="roulette-board" id="board">
+                    <div class="number-cell green" data-number="0">0</div>
+                    {% for i in range(1, 37) %}
+                        <div class="number-cell {{ 'red' if i in red_numbers else 'black' }}" 
+                             data-number="{{ i }}">{{ i }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <form action="{{ url_for('place_roulette_bet') }}" method="post">
+                    <div class="form-group">
+                        <label for="bet_amount">Bet Amount:</label>
+                        <input type="number" class="form-control" id="bet_amount" name="bet_amount" 
+                               min="1" max="{{ user.balance }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="bet_type">Bet Type:</label>
+                        <select class="form-control" id="bet_type" name="bet_type" required>
+                            <option value="straight">Straight (35:1)</option>
+                            <option value="red">Red (1:1)</option>
+                            <option value="black">Black (1:1)</option>
+                            <option value="even">Even (1:1)</option>
+                            <option value="odd">Odd (1:1)</option>
+                            <option value="1-18">1-18 (1:1)</option>
+                            <option value="19-36">19-36 (1:1)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="number">Number (for straight bets):</label>
+                        <input type="number" class="form-control" id="number" name="number" 
+                               min="0" max="36">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Place Bet</button>
+                </form>
+                
+                {% if result %}
+                    <div class="alert alert-info mt-4">
+                        <h4>Last Spin: {{ result.number }}</h4>
+                        <p>{{ result.message }}</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
     </div>
+    
+    <script>
+        document.querySelectorAll('.number-cell').forEach(cell => {
+            cell.addEventListener('click', () => {
+                document.getElementById('number').value = cell.dataset.number;
+                document.getElementById('bet_type').value = 'straight';
+            });
+        });
+    </script>
 </body>
 </html>
