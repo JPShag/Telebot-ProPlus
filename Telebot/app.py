@@ -30,15 +30,20 @@ next_item_id = 4
 USERS = {}
 
 class User(UserMixin):
-    def __init__(self, id, username, password, balance=Decimal('100.00')):
+import datetime
+
+class User(UserMixin):
+    def __init__(self, id, username, password, balance=Decimal('100.00'), role='user'):
         self.id = id
         self.username = username
         self.password = password
         self.balance = balance
-        self.purchase_history = []
+        self.orders = [] # Stores list of order dictionaries, e.g. {'order_id': 'ORD-XYZ', 'items': [{'id':1, 'name':'Item1', 'price':10, 'quantity':1}], 'total_amount': 10, 'timestamp': 'YYYY-MM-DD HH:MM:SS'}
         self.level = 1
         self.reward_points = 0
         self.telegram_id = None
+        self.cart = {} # item_id: quantity
+        self.role = role # 'user' or 'admin'
 
     def get_id(self):
         return self.id
@@ -46,9 +51,16 @@ class User(UserMixin):
     def check_password(self, password):
         return check_password_hash(self.password, password)
 
+    def is_admin(self):
+        return self.role == 'admin'
+
 @login_manager.user_loader
 def load_user(user_id):
     return USERS.get(user_id)
+
+# Helper to generate a unique order ID
+def generate_order_id():
+    return f"ORD-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}-{random.randint(1000, 9999)}"
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -77,20 +89,113 @@ def register():
         password = request.form['password']
         hashed_password = generate_password_hash(password)
         user_id = str(len(USERS) + 1)
-        user = User(user_id, username, hashed_password)
+        # First user registered is admin, others are 'user'
+        role = 'admin' if not USERS else 'user'
+        user = User(user_id, username, hashed_password, role=role)
         USERS[user_id] = user
-        flash('Registered successfully. Please log in.')
+        flash(f'Registered successfully as {role}. Please log in.')
         return redirect(url_for('login'))
     return render_template('register.html')
 
 def update_user_rewards(user):
-    user.reward_points = sum(item['price'] for item in user.purchase_history)
+    total_spent = sum(order['total_amount'] for order in user.orders)
+    user.reward_points = int(total_spent) # Example: 1 point per dollar spent
     user.level = user.reward_points // 50 + 1
 
 @app.route('/')
 @login_required
 def index():
-    return render_template('index.html', items=ITEMS, user=current_user)
+    cart_items_details = []
+    total_cart_price = Decimal('0.00')
+    if current_user.cart:
+        for item_id, quantity in current_user.cart.items():
+            item = next((i for i in ITEMS if i['id'] == item_id), None)
+            if item:
+                cart_items_details.append({'item': item, 'quantity': quantity, 'total_price': item['price'] * quantity})
+                total_cart_price += item['price'] * quantity
+    return render_template('index.html', items=ITEMS, user=current_user, cart_items_details=cart_items_details, total_cart_price=total_cart_price)
+
+@app.route('/add_to_cart/<int:item_id>')
+@login_required
+def add_to_cart(item_id):
+    item = next((i for i in ITEMS if i['id'] == item_id), None)
+    if item:
+        current_user.cart[item_id] = current_user.cart.get(item_id, 0) + 1
+        flash(f'Added {item["name"]} to cart.')
+    else:
+        flash('Item not found.')
+    return redirect(url_for('index'))
+
+@app.route('/remove_from_cart/<int:item_id>')
+@login_required
+def remove_from_cart(item_id):
+    item = next((i for i in ITEMS if i['id'] == item_id), None)
+    if item and item_id in current_user.cart:
+        if current_user.cart[item_id] > 1:
+            current_user.cart[item_id] -= 1
+        else:
+            del current_user.cart[item_id]
+        flash(f'Removed {item["name"]} from cart.')
+    else:
+        flash('Item not found in cart.')
+    return redirect(url_for('index'))
+
+@app.route('/clear_cart')
+@login_required
+def clear_cart():
+    current_user.cart = {}
+    flash('Cart cleared.')
+    return redirect(url_for('index'))
+
+@app.route('/checkout')
+@login_required
+def checkout():
+    total_cart_price = Decimal('0.00')
+    if not current_user.cart:
+        flash('Your cart is empty.')
+        return redirect(url_for('index'))
+
+    for item_id, quantity in current_user.cart.items():
+        item = next((i for i in ITEMS if i['id'] == item_id), None)
+        if item:
+            total_cart_price += item['price'] * quantity
+        else:
+            flash(f'Item with ID {item_id} not found. Please review your cart.')
+            # Potentially remove missing items from cart here
+            return redirect(url_for('index')) # Or redirect to a cart view page
+
+    if current_user.balance >= total_cart_price:
+        ordered_items_details = []
+        for item_id, quantity in current_user.cart.items():
+            item = next((i for i in ITEMS if i['id'] == item_id), None)
+            if item: # Should always be true if cart is consistent
+                ordered_items_details.append({
+                    'id': item['id'],
+                    'name': item['name'],
+                    'price': item['price'],
+                    'quantity': quantity
+                })
+            # In a real app, you'd also reduce stock here
+
+        new_order = {
+            'order_id': generate_order_id(),
+            'items': ordered_items_details,
+            'total_amount': total_cart_price,
+            'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        current_user.orders.append(new_order)
+        current_user.balance -= total_cart_price
+        update_user_rewards(current_user) # Recalculate rewards based on new order history
+        current_user.cart = {} # Clear cart after purchase
+        flash(f'Checkout successful! Total: ${total_cart_price}. Order ID: {new_order["order_id"]}')
+    else:
+        flash('Insufficient balance for checkout.')
+    return redirect(url_for('index'))
+
+@app.route('/order_history')
+@login_required
+def order_history():
+    return render_template('order_history.html', orders=current_user.orders)
 
 @app.route('/add_item', methods=['POST'])
 @login_required
@@ -199,10 +304,64 @@ def ipn():
 @app.route('/admin')
 @login_required
 def admin():
-    if current_user.username != 'admin':
-        flash('Access denied')
+    if not current_user.is_admin():
+        flash('Access denied: Admin privileges required.')
         return redirect(url_for('index'))
     return render_template('admin.html', users=USERS.values(), items=ITEMS)
+
+# Decorator for admin required routes
+from functools import wraps
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or not current_user.is_admin():
+            flash("You do not have permission to access this page.", "danger")
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Apply admin_required to admin-specific item management routes
+@app.route('/add_item', methods=['POST'])
+@login_required
+@admin_required
+def add_item():
+    global next_item_id
+    name = request.form['name']
+    price = Decimal(request.form['price'])
+    ITEMS.append({'id': next_item_id, 'name': name, 'price': price})
+    next_item_id += 1
+    flash(f"Item '{name}' added successfully.", "success")
+    return redirect(url_for('admin')) # Redirect to admin page
+
+@app.route('/edit_item/<int:item_id>', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def edit_item(item_id):
+    item = next((item for item in ITEMS if item['id'] == item_id), None)
+    if not item:
+        flash("Item not found.", "danger")
+        return redirect(url_for('admin'))
+    if request.method == 'POST':
+        item['name'] = request.form['name']
+        item['price'] = Decimal(request.form['price'])
+        flash(f"Item '{item['name']}' updated successfully.", "success")
+        return redirect(url_for('admin'))
+    return render_template('edit_item.html', item=item)
+
+@app.route('/delete_item/<int:item_id>')
+@login_required
+@admin_required
+def delete_item(item_id):
+    global ITEMS
+    item_to_delete = next((item for item in ITEMS if item['id'] == item_id), None)
+    if item_to_delete:
+        ITEMS = [item for item in ITEMS if item['id'] != item_id]
+        flash(f"Item '{item_to_delete['name']}' deleted successfully.", "success")
+    else:
+        flash("Item not found.", "danger")
+    return redirect(url_for('admin'))
+
 
 # Additional Casino Games Routes
 

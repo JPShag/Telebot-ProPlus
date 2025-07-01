@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order History</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container">
+        <h1 class="my-4">Your Order History</h1>
+        <p><a href="{{ url_for('index') }}" class="btn btn-primary">Back to Shop</a> <a href="{{ url_for('logout') }}" class="btn btn-secondary">Logout</a></p>
+
+        {% if orders %}
+            {% for order in orders | reverse %}
+                <div class="card mb-3">
+                    <div class="card-header">
+                        Order ID: {{ order.order_id }} - Date: {{ order.timestamp }}
+                    </div>
+                    <div class="card-body">
+                        <h5 class="card-title">Total Amount: ${{ "%.2f"|format(order.total_amount) }}</h5>
+                        <h6>Items:</h6>
+                        <ul class="list-group list-group-flush">
+                            {% for item in order.items %}
+                                <li class="list-group-item">
+                                    {{ item.name }} (Quantity: {{ item.quantity }}) - Price per item: ${{ "%.2f"|format(item.price) }}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>You have no past orders.</p>
+        {% endif %}
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+</body>
+</html>

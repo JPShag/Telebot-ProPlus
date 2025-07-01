@@ -14,17 +14,48 @@
         <h1 class="my-4">Shop Management</h1>
         <h2>Welcome, {{ user.username }}</h2>
         <p><a href="{{ url_for('logout') }}">Logout</a></p>
+        {% if current_user.is_admin() %}
+            <p><a href="{{ url_for('admin') }}" class="btn btn-warning">Admin Panel</a></p>
+        {% endif %}
         <h2>Items</h2>
         <ul class="list-group">
             {% for item in items %}
                 <li class="list-group-item">
                     {{ item.name }} - ${{ item.price }}
-                    <a href="{{ url_for('edit_item', item_id=item.id) }}" class="btn btn-sm btn-primary">Edit</a>
-                    <a href="{{ url_for('delete_item', item_id=item.id) }}" class="btn btn-sm btn-danger">Delete</a>
-                    <a href="{{ url_for('purchase_item', item_id=item.id) }}" class="btn btn-sm btn-success">Purchase</a>
+                    {% if current_user.is_admin() %}
+                        <a href="{{ url_for('edit_item', item_id=item.id) }}" class="btn btn-sm btn-primary">Edit</a>
+                        <a href="{{ url_for('delete_item', item_id=item.id) }}" class="btn btn-sm btn-danger">Delete</a>
+                    {% endif %}
+                    {# <a href="{{ url_for('purchase_item', item_id=item.id) }}" class="btn btn-sm btn-success">Purchase</a> #}
+                    <a href="{{ url_for('add_to_cart', item_id=item.id) }}" class="btn btn-sm btn-info">Add to Cart</a>
                 </li>
             {% endfor %}
         </ul>
+
+        <h2 class="my-4">Your Shopping Cart</h2>
+        {% if cart_items_details %}
+            <ul class="list-group mb-3">
+                {% for cart_entry in cart_items_details %}
+                    <li class="list-group-item d-flex justify-content-between lh-condensed">
+                        <div>
+                            <h6 class="my-0">{{ cart_entry.item.name }}</h6>
+                            <small class="text-muted">Quantity: {{ cart_entry.quantity }}</small>
+                        </div>
+                        <span class="text-muted">${{ "%.2f"|format(cart_entry.total_price) }}</span>
+                        <a href="{{ url_for('remove_from_cart', item_id=cart_entry.item.id) }}" class="btn btn-sm btn-warning">Remove One</a>
+                    </li>
+                {% endfor %}
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>Total (USD)</span>
+                    <strong>${{ "%.2f"|format(total_cart_price) }}</strong>
+                </li>
+            </ul>
+            <a href="{{ url_for('checkout') }}" class="btn btn-success btn-lg btn-block">Checkout</a>
+            <a href="{{ url_for('clear_cart') }}" class="btn btn-danger btn-sm mt-2">Clear Cart</a>
+        {% else %}
+            <p>Your cart is empty.</p>
+        {% endif %}
+
         <h2 class="my-4">Add Item</h2>
         <form action="/add_item" method="post">
             <div class="form-group">
@@ -39,15 +70,16 @@
         </form>
         
         <h2 class="my-4">User Information</h2>
-        <p>Balance: ${{ user.balance }}</p>
+        <p>Balance: ${{ "%.2f"|format(user.balance) }}</p>
         <p>Level: {{ user.level }}</p>
         <p>Reward Points: {{ user.reward_points }}</p>
-        <h3>Purchase History</h3>
-        <ul class="list-group">
-            {% for item in user.purchase_history %}
-                <li class="list-group-item">{{ item.name }} - ${{ item.price }}</li>
-            {% endfor %}
-        </ul>
+        <p><a href="{{ url_for('order_history') }}" class="btn btn-info">View Order History</a></p>
+        {# <h3>Purchase History</h3> #}
+        {# <ul class="list-group"> #}
+            {# {% for item in user.purchase_history %} #}
+                {# <li class="list-group-item">{{ item.name }} - ${{ item.price }}</li> #}
+            {# {% endfor %} #}
+        {# </ul> #}
         
         <h2 class="my-4">Coin Flip Game</h2>
         <p>Cost to play: $1</p>

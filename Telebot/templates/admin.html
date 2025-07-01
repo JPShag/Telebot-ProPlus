@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard</title>
+    <title>Admin Panel</title>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
     <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
@@ -11,25 +11,107 @@
 </head>
 <body>
     <div class="container">
-        <h1 class="my-4">Admin Dashboard</h1>
-        <h2>Users</h2>
-        <ul class="list-group">
-            {% for user in users %}
-                <li class="list-group-item">
-                    {{ user.username }} - Balance: ${{ user.balance }} - Level: {{ user.level }} - Reward Points: {{ user.reward_points }}
-                </li>
-            {% endfor %}
-        </ul>
-        <h2 class="my-4">Items</h2>
-        <ul class="list-group">
-            {% for item in items %}
-                <li class="list-group-item">
-                    {{ item.name }} - ${{ item.price }}
-                    <a href="{{ url_for('edit_item', item_id=item.id) }}" class="btn btn-sm btn-primary">Edit</a>
-                    <a href="{{ url_for('delete_item', item_id=item.id) }}" class="btn btn-sm btn-danger">Delete</a>
-                </li>
-            {% endfor %}
-        </ul>
+        <h1 class="my-4">Admin Panel</h1>
+        <p><a href="{{ url_for('index') }}" class="btn btn-primary">Back to Shop</a> <a href="{{ url_for('logout') }}" class="btn btn-secondary">Logout</a></p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category or 'info' }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <h2 class="my-4">Manage Users</h2>
+        <table class="table table-striped">
+            <thead class="thead-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>Username</th>
+                    <th>Balance</th>
+                    <th>Level</th>
+                    <th>Reward Points</th>
+                    <th>Role</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user_obj in users %}
+                <tr>
+                    <td>{{ user_obj.id }}</td>
+                    <td>{{ user_obj.username }}</td>
+                    <td>${{ "%.2f"|format(user_obj.balance) }}</td>
+                    <td>{{ user_obj.level }}</td>
+                    <td>{{ user_obj.reward_points }}</td>
+                    <td>{{ user_obj.role }}</td>
+                    <td>
+                        {# Add actions like edit role, suspend user later #}
+                        {% if user_obj.username != 'admin' and not user_obj.is_admin() %} {# Placeholder for future role editing actions #}
+                           {# <a href="#" class="btn btn-sm btn-warning">Make Admin</a> #}
+                        {% elif user_obj.is_admin() and user_obj.username != 'admin' %}
+                           {# <a href="#" class="btn btn-sm btn-info">Make User</a> #}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h2 class="my-4">Manage Items</h2>
+        <div class="mb-3">
+            <a href="#addItemModal" class="btn btn-success" data-toggle="modal">Add New Item</a>
+        </div>
+        <table class="table table-striped">
+            <thead class="thead-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Price</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td>{{ item.id }}</td>
+                    <td>{{ item.name }}</td>
+                    <td>${{ "%.2f"|format(item.price) }}</td>
+                    <td>
+                        <a href="{{ url_for('edit_item', item_id=item.id) }}" class="btn btn-sm btn-primary">Edit</a>
+                        <a href="{{ url_for('delete_item', item_id=item.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this item?');">Delete</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Add Item Modal -->
+        <div class="modal fade" id="addItemModal" tabindex="-1" role="dialog" aria-labelledby="addItemModalLabel" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="addItemModalLabel">Add New Item</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <form action="{{ url_for('add_item') }}" method="post">
+                            <div class="form-group">
+                                <label for="name">Name:</label>
+                                <input type="text" id="name" name="name" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="price">Price:</label>
+                                <input type="number" step="0.01" id="price" name="price" class="form-control" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Add Item</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 </body>
 </html>
