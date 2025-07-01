@@ -19,7 +19,7 @@ A Flask application for managing an online shop with user authentication, crypto
 
 1. Clone the repository:
     ```bash
-    git clone https://github.com/<your-username>/<repo-name>.git
+    git clone https://github.com/JPShag/Telebot-ProPlus.git
     cd MegaCryptoCasinoShop
     ```
 
